@@ -285,7 +285,7 @@ def _chat(
                 json=payload,
                 headers=headers,
                 timeout=60,
-                proxy="http://127.0.0.1:10808",
+                proxy=os.getenv("GEMINI_PROXY") or None,
             )
         except httpx.HTTPError as exc:
             raise AdvisorError(
