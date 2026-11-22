@@ -1,213 +1,200 @@
 
-"""
-Temporary local demo catalog.
-All products, brands, prices and stock information are fictional.
-"""
+"""Live beauty product catalog from Rozalin Beauty WooCommerce Store API."""
 
 from __future__ import annotations
 
 import re
+import time
+from html import unescape
 from typing import Any
+
+import httpx
+
+
+BASE = "https://rozalinbeauty.com"
+PRODUCTS = f"{BASE}/wp-json/wc/store/v1/products"
+
+CACHE_TTL = 180
+CACHE_MAX = 400
+
+SHOWCASE_QUERIES = [
+    "مرطوب کننده",
+    "ضد آفتاب",
+    "سرم",
+    "شوینده",
+    "ضد جوش",
+    "ضد لک",
+]
+
+_cache: dict[str, tuple[float, Any]] = {}
 
 
 class CatalogError(RuntimeError):
     """Error raised when the product catalog is unavailable."""
 
 
-DEMO_PRODUCTS = [
-    {
-        "id": "D001",
-        "title": "کرم مرطوب کننده پوست چرب",
-        "brand": "درمالیفت",
-        "final_price": 185000,
-        "price": 220000,
-        "discount_pct": 16,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D001",
-    },
-    {
-        "id": "D002",
-        "title": "کرم آبرسان پوست خشک",
-        "brand": "هیدرودرم",
-        "final_price": 240000,
-        "price": 240000,
-        "discount_pct": 0,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D002",
-    },
-    {
-        "id": "D003",
-        "title": "ژل مرطوب کننده پوست مختلط",
-        "brand": "آردن",
-        "final_price": 195000,
-        "price": 210000,
-        "discount_pct": 7,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D003",
-    },
-    {
-        "id": "D004",
-        "title": "ضد آفتاب بی رنگ پوست چرب SPF50",
-        "brand": "سان سیف",
-        "final_price": 310000,
-        "price": 350000,
-        "discount_pct": 11,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D004",
-    },
-    {
-        "id": "D005",
-        "title": "ضد آفتاب رنگی پوست خشک SPF50",
-        "brand": "درمالیفت",
-        "final_price": 285000,
-        "price": 285000,
-        "discount_pct": 0,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D005",
-    },
-    {
-        "id": "D006",
-        "title": "سرم نیاسینامید مناسب پوست چرب",
-        "brand": "اورموس",
-        "final_price": 390000,
-        "price": 450000,
-        "discount_pct": 13,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D006",
-    },
-    {
-        "id": "D007",
-        "title": "سرم هیالورونیک اسید آبرسان",
-        "brand": "آردن",
-        "final_price": 420000,
-        "price": 420000,
-        "discount_pct": 0,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D007",
-    },
-    {
-        "id": "D008",
-        "title": "سرم ویتامین C روشن کننده",
-        "brand": "درمالیفت",
-        "final_price": 510000,
-        "price": 560000,
-        "discount_pct": 9,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D008",
-    },
-    {
-        "id": "D009",
-        "title": "ژل شستشوی صورت پوست چرب",
-        "brand": "هیدرودرم",
-        "final_price": 145000,
-        "price": 160000,
-        "discount_pct": 9,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D009",
-    },
-    {
-        "id": "D010",
-        "title": "فوم شستشوی صورت پوست خشک",
-        "brand": "آردن",
-        "final_price": 175000,
-        "price": 175000,
-        "discount_pct": 0,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D010",
-    },
-    {
-        "id": "D011",
-        "title": "کرم ضد لک و روشن کننده",
-        "brand": "درمالیفت",
-        "final_price": 480000,
-        "price": 520000,
-        "discount_pct": 8,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D011",
-    },
-    {
-        "id": "D012",
-        "title": "کرم دور چشم آبرسان",
-        "brand": "هیدرودرم",
-        "final_price": 260000,
-        "price": 290000,
-        "discount_pct": 10,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D012",
-    },
-    {
-        "id": "D013",
-        "title": "کرم ضد جوش پوست چرب",
-        "brand": "آردن",
-        "final_price": 225000,
-        "price": 250000,
-        "discount_pct": 10,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D013",
-    },
-    {
-        "id": "D014",
-        "title": "کرم مرطوب کننده پوست حساس",
-        "brand": "هیدرودرم",
-        "final_price": 205000,
-        "price": 230000,
-        "discount_pct": 11,
-        "in_stock": True,
-        "image": "",
-        "url": "",
-        "slug": "D014",
-    },
-    {
-        "id": "D015",
-        "title": "لوسیون آبرسان صورت و بدن",
-        "brand": "آردن",
-        "final_price": 290000,
-        "price": 320000,
-        "discount_pct": 9,
-        "in_stock": False,
-        "image": "",
-        "url": "",
-        "slug": "D015",
-    },
-]
-
-
 def _normalize(value: str) -> str:
     value = str(value or "").lower()
     value = value.replace("ي", "ی").replace("ك", "ک")
-    value = re.sub(r"[^\w\s]", " ", value)
-    value = " ".join(value.split())
-
-    # یکسان‌سازی شکل‌های مختلف نوشتن ضدآفتاب
     value = value.replace("ضد آفتاب", "ضدآفتاب")
+    value = re.sub(r"[^\w\s]", " ", value)
+    return " ".join(value.split())
+
+
+def _cache_get(key: str):
+    item = _cache.get(key)
+
+    if not item:
+        return None
+
+    expires, value = item
+
+    if time.time() > expires:
+        _cache.pop(key, None)
+        return None
 
     return value
+
+
+def _cache_put(key: str, value: Any):
+    if len(_cache) >= CACHE_MAX:
+        _cache.clear()
+
+    _cache[key] = (time.time() + CACHE_TTL, value)
+
+
+def _get_json(params: dict[str, Any]) -> list[dict[str, Any]]:
+    cache_key = str(sorted(params.items()))
+
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        response = httpx.get(
+            PRODUCTS,
+            params=params,
+            timeout=30,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0",
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    except httpx.HTTPError as exc:
+        raise CatalogError(
+            f"اتصال به فروشگاه رزالین برقرار نشد: {exc.__class__.__name__}"
+        ) from exc
+
+    except ValueError as exc:
+        raise CatalogError("پاسخ فروشگاه معتبر نیست.") from exc
+
+    if not isinstance(data, list):
+        raise CatalogError("ساختار اطلاعات دریافتی از فروشگاه معتبر نیست.")
+
+    _cache_put(cache_key, data)
+    return data
+
+
+def _int(value: Any) -> int | None:
+    if value is None:
+        return None
+
+    try:
+        value = str(value).strip().replace(",", "")
+        number = int(float(value))
+        return number if number > 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _money(prices: dict[str, Any]) -> tuple[int | None, int | None]:
+    """
+    Returns:
+        final_price, regular_price
+
+    WooCommerce may return zero for unavailable prices.
+    Zero is never treated as a real product price.
+    """
+    current = _int(prices.get("price"))
+    regular = _int(prices.get("regular_price"))
+    sale = _int(prices.get("sale_price"))
+
+    if current is not None:
+        final_price = current
+    elif sale is not None:
+        final_price = sale
+    else:
+        final_price = regular
+
+    if regular is None:
+        regular = final_price
+
+    return final_price, regular
+
+
+def _clean_html(value: Any) -> str:
+    value = unescape(str(value or ""))
+    value = re.sub(r"<[^>]+>", " ", value)
+    return " ".join(value.split())
+
+
+def _brand(product: dict[str, Any]) -> str:
+    brands = product.get("brands") or []
+
+    if isinstance(brands, list) and brands:
+        first = brands[0]
+
+        if isinstance(first, dict):
+            return str(first.get("name") or "")
+
+        return str(first)
+
+    return ""
+
+
+def _item(product: dict[str, Any]) -> dict[str, Any]:
+    prices = product.get("prices") or {}
+
+    final_price, regular_price = _money(prices)
+
+    discount = 0
+    if final_price and regular_price and regular_price > final_price:
+        discount = round(
+            (regular_price - final_price) / regular_price * 100
+        )
+
+    images = product.get("images") or []
+    image = ""
+
+    if images and isinstance(images[0], dict):
+        image = str(images[0].get("src") or "")
+
+    categories = [
+        str(category.get("name") or "")
+        for category in product.get("categories") or []
+        if isinstance(category, dict)
+    ]
+
+    return {
+        "id": str(product.get("id") or ""),
+        "slug": str(product.get("slug") or ""),
+        "title": str(product.get("name") or ""),
+        "brand": _brand(product),
+        "final_price": final_price,
+        "price": regular_price,
+        "discount_pct": discount,
+        "in_stock": bool(product.get("is_in_stock")),
+        "image": image,
+        "url": str(product.get("permalink") or ""),
+        "description": _clean_html(
+            product.get("short_description")
+            or product.get("description")
+        ),
+        "categories": categories,
+    }
 
 
 def search(
@@ -222,40 +209,36 @@ def search(
     if len(query) < 2:
         return []
 
-    words = query.split()
+    try:
+        raw_products = _get_json({
+            "search": query,
+            "per_page": min(max(limit, 1), 100),
+        })
+    except CatalogError:
+        raise
+
     results = []
 
-    for product in DEMO_PRODUCTS:
+    for raw in raw_products:
+        product = _item(raw)
+
+        if not product["id"] or not product["title"]:
+            continue
 
         if in_stock and not product["in_stock"]:
             continue
 
-        if max_price is not None and product["final_price"] > max_price:
-            continue
+        # Products with unknown prices cannot pass a budget filter.
+        if max_price is not None:
+            if product["final_price"] is None:
+                continue
 
-        searchable = _normalize(
-            product["title"] + " " +
-            product["brand"] + " " +
-            product["slug"]
-        )
+            if product["final_price"] > max_price:
+                continue
 
-        score = sum(
-            1 for word in words
-            if word in searchable
-        )
+        results.append(product)
 
-        if score > 0:
-            results.append((score, product))
-
-    results.sort(
-        key=lambda item: item[0],
-        reverse=True
-    )
-
-    return [
-        dict(product)
-        for _, product in results[:limit]
-    ]
+    return results[:limit]
 
 
 def collect(
@@ -268,15 +251,14 @@ def collect(
     seen = set()
 
     for query in queries:
-
         products = search(
             query,
             limit=limit,
             max_price=max_price,
+            in_stock=True,
         )
 
         for product in products:
-
             product_id = product["id"]
 
             if product_id in seen:
@@ -299,17 +281,100 @@ def refresh(
     products: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
 
-    return [
-        dict(product)
-        for product in products
-    ]
+    if not products:
+        return []
+
+    ids = []
+
+    for product in products:
+        try:
+            ids.append(int(product["id"]))
+        except (ValueError, TypeError, KeyError):
+            continue
+
+    if not ids:
+        return []
+
+    try:
+        raw_products = _get_json({
+            "include": ",".join(map(str, ids)),
+            "per_page": min(len(ids), 100),
+        })
+
+        refreshed = [
+            _item(raw)
+            for raw in raw_products
+        ]
+
+        return [
+            product
+            for product in refreshed
+            if product["id"] and product["in_stock"]
+        ]
+
+    except CatalogError:
+        # Keep the selected products if the refresh endpoint temporarily fails.
+        return [
+            dict(product)
+            for product in products
+            if product.get("in_stock")
+        ]
 
 
 def showcase(
     limit: int = 50
 ) -> list[dict[str, Any]]:
 
-    return [
-        dict(product)
-        for product in DEMO_PRODUCTS[:limit]
-    ]
+    merged = []
+    seen = set()
+
+    for query in SHOWCASE_QUERIES:
+        try:
+            products = search(
+                query,
+                limit=20,
+                in_stock=True,
+            )
+        except CatalogError:
+            continue
+
+        for product in products:
+            product_id = product["id"]
+
+            if product_id in seen:
+                continue
+
+            seen.add(product_id)
+            merged.append(product)
+
+            if len(merged) >= limit:
+                return merged
+
+    # If category searches return too few products, try the general catalog.
+    if len(merged) < limit:
+        try:
+            raw_products = _get_json({
+                "per_page": min(max(limit, 1), 100),
+                "orderby": "popularity",
+            })
+
+            for raw in raw_products:
+                product = _item(raw)
+
+                if (
+                    not product["id"]
+                    or not product["in_stock"]
+                    or product["id"] in seen
+                ):
+                    continue
+
+                seen.add(product["id"])
+                merged.append(product)
+
+                if len(merged) >= limit:
+                    break
+
+        except CatalogError:
+            pass
+
+    return merged[:limit]
