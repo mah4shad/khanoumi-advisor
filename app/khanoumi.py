@@ -115,7 +115,6 @@ def _money(prices: dict[str, Any]) -> tuple[int | None, int | None]:
     Returns:
         final_price, regular_price
 
-    WooCommerce may return zero for unavailable prices.
     Zero is never treated as a real product price.
     """
     current = _int(prices.get("price"))
@@ -186,7 +185,7 @@ def _item(product: dict[str, Any]) -> dict[str, Any]:
         "final_price": final_price,
         "price": regular_price,
         "discount_pct": discount,
-        "in_stock": bool(product.get("is_in_stock")),
+        "in_stock": product.get("is_in_stock") is True,
         "image": image,
         "url": str(product.get("permalink") or ""),
         "description": _clean_html(
@@ -209,13 +208,10 @@ def search(
     if len(query) < 2:
         return []
 
-    try:
-        raw_products = _get_json({
-            "search": query,
-            "per_page": min(max(limit, 1), 100),
-        })
-    except CatalogError:
-        raise
+    raw_products = _get_json({
+        "search": query,
+        "per_page": min(max(limit, 1), 100),
+    })
 
     results = []
 
@@ -228,7 +224,6 @@ def search(
         if in_stock and not product["in_stock"]:
             continue
 
-        # Products with unknown prices cannot pass a budget filter.
         if max_price is not None:
             if product["final_price"] is None:
                 continue
@@ -249,14 +244,22 @@ def collect(
 
     merged = []
     seen = set()
+    last_error = None
+    successful_search = False
 
     for query in queries:
-        products = search(
-            query,
-            limit=limit,
-            max_price=max_price,
-            in_stock=True,
-        )
+        try:
+            products = search(
+                query,
+                limit=min(limit, 30),
+                max_price=max_price,
+                in_stock=True,
+            )
+            successful_search = True
+
+        except CatalogError as exc:
+            last_error = exc
+            continue
 
         for product in products:
             product_id = product["id"]
@@ -273,6 +276,9 @@ def collect(
 
             if len(merged) >= limit:
                 return merged
+
+    if not successful_search and last_error:
+        raise last_error
 
     return merged
 
@@ -313,7 +319,6 @@ def refresh(
         ]
 
     except CatalogError:
-        # Keep the selected products if the refresh endpoint temporarily fails.
         return [
             dict(product)
             for product in products
@@ -350,7 +355,6 @@ def showcase(
             if len(merged) >= limit:
                 return merged
 
-    # If category searches return too few products, try the general catalog.
     if len(merged) < limit:
         try:
             raw_products = _get_json({
