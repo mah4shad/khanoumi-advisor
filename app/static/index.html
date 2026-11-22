@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>مشاور زیبایی خانومی</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">نسخه آزمایشی · فروشگاه خانومی</p>
+          <h1>مشاور زیبایی</h1>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="بخش‌ها">
+        <button type="button" class="tab active" data-view="chat">گفتگو</button>
+        <button type="button" class="tab" data-view="shelf">ویترین ۵۰ محصول</button>
+      </nav>
+    </header>
+
+    <section class="view" id="chat-view">
+      <aside class="profile">
+        <h2>پرونده پوست</h2>
+        <label>
+          نوع پوست
+          <select id="skin">
+            <option value="">هنوز نمی‌دانم</option>
+            <option value="dry">خشک</option>
+            <option value="oily">چرب</option>
+            <option value="combination">مختلط</option>
+            <option value="normal">معمولی</option>
+            <option value="sensitive">حساس</option>
+          </select>
+        </label>
+        <fieldset>
+          <legend>نیاز اصلی</legend>
+          <label class="check"><input type="checkbox" value="acne" /> جوش و آکنه</label>
+          <label class="check"><input type="checkbox" value="dryness" /> خشکی</label>
+          <label class="check"><input type="checkbox" value="pigmentation" /> لک و تیرگی</label>
+          <label class="check"><input type="checkbox" value="sunscreen" /> ضدآفتاب</label>
+          <label class="check"><input type="checkbox" value="aging" /> چین و چروک</label>
+          <label class="check"><input type="checkbox" value="hydration" /> آبرسانی</label>
+          <label class="check"><input type="checkbox" value="pores" /> منافذ</label>
+          <label class="check"><input type="checkbox" value="cleansing" /> پاکسازی</label>
+        </fieldset>
+        <label>
+          سقف بودجه (تومان)
+          <input id="budget" inputmode="numeric" placeholder="مثلاً ۷۰۰۰۰۰" />
+        </label>
+        <button type="button" id="new-chat" class="ghost">گفتگوی جدید</button>
+        <p class="hint">قیمت و موجودی هر پیشنهاد، همان لحظه از خانومی خوانده می‌شود.</p>
+      </aside>
+
+      <main class="conversation">
+        <div id="thread" class="thread" aria-live="polite"></div>
+        <div id="compare-bar" class="compare-bar" hidden>
+          <span id="compare-count">۰ محصول برای مقایسه</span>
+          <button type="button" id="compare-go">مقایسه کن</button>
+          <button type="button" id="compare-clear" class="ghost">پاک کردن</button>
+        </div>
+        <form id="composer" class="composer">
+          <div class="chips" id="chips"></div>
+          <div class="row">
+            <textarea id="message" rows="2" placeholder="مثلاً: برای پوست چرب و جوش، یک روتین ساده می‌خواهم"></textarea>
+            <button type="submit" id="send">بپرس</button>
+          </div>
+        </form>
+      </main>
+    </section>
+
+    <section class="view hidden" id="shelf-view">
+      <div class="shelf-head">
+        <div>
+          <h2>ویترین آزمایشی</h2>
+          <p>تا ۵۰ محصول مراقبت پوست، با قیمت و موجودی زنده.</p>
+        </div>
+        <button type="button" id="reload-shelf">به‌روزرسانی</button>
+      </div>
+      <div id="shelf" class="grid"></div>
+    </section>
+
+    <footer>این گفتگو جایگزین مراجعه به پزشک پوست نیست. خرید از صفحه خود محصول در خانومی انجام می‌شود.</footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
