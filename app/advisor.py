@@ -17,7 +17,7 @@ from .text import normalize, parse_budget, wants_comparison
 log = logging.getLogger("advisor")
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 SKIN_TYPES = {
     "dry": "خشک",
