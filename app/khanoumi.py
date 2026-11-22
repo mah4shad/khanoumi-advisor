@@ -1,113 +1,124 @@
-"""Read-only client for the public Khanoumi product catalog."""
+
+"""Temporary local demo catalog. All products and prices are fictional."""
 
 from __future__ import annotations
-import logging
-import os
+
+import re
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-import httpx
-
-BASE = "https://www.khanoumi.com"
-PRODUCTS = "/api/ntl/v1/products"
-SHOWCASE_QUERIES = (
-    "کرم مرطوب کننده صورت",
-    "ضد آفتاب صورت",
-    "سرم آبرسان صورت",
-    "ژل شستشو صورت",
-    "کرم دور چشم",
-)
+BASE = "https://demo.example.com"
 CACHE_TTL = 180
-SHOWCASE_TTL = 600
-CACHE_MAX = 400
 
 _lock = threading.Lock()
-_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
-_client = httpx.Client(
-    base_url=BASE,
-    timeout=40,
-    follow_redirects=True,
-    trust_env=False,
-    headers={
-        "Accept": "application/json, text/html;q=0.9",
-        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-        "Referer": f"{BASE}/",
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        ),
+
+DEMO_PRODUCTS = [
+    {
+        "id": "D001", "title": "کرم مرطوب کننده پوست چرب",
+        "brand": "درمالیفت", "category": "moisturizer",
+        "final_price": 185000, "price": 220000, "discount_pct": 16,
+        "in_stock": True, "image": "", "slug": "D001",
     },
-)
+    {
+        "id": "D002", "title": "کرم آبرسان پوست خشک",
+        "brand": "هیدرودرم", "category": "moisturizer",
+        "final_price": 240000, "price": 240000, "discount_pct": 0,
+        "in_stock": True, "image": "", "slug": "D002",
+    },
+    {
+        "id": "D003", "title": "ژل مرطوب کننده پوست مختلط",
+        "brand": "آردن", "category": "moisturizer",
+        "final_price": 195000, "price": 210000, "discount_pct": 7,
+        "in_stock": True, "image": "", "slug": "D003",
+    },
+    {
+        "id": "D004", "title": "ضد آفتاب بی رنگ پوست چرب SPF50",
+        "brand": "سان سیف", "category": "sunscreen",
+        "final_price": 310000, "price": 350000, "discount_pct": 11,
+        "in_stock": True, "image": "", "slug": "D004",
+    },
+    {
+        "id": "D005", "title": "ضد آفتاب رنگی پوست خشک SPF50",
+        "brand": "درمالیفت", "category": "sunscreen",
+        "final_price": 285000, "price": 285000, "discount_pct": 0,
+        "in_stock": True, "image": "", "slug": "D005",
+    },
+    {
+        "id": "D006", "title": "سرم نیاسینامید مناسب پوست چرب",
+        "brand": "اورموس", "category": "serum",
+        "final_price": 390000, "price": 450000, "discount_pct": 13,
+        "in_stock": True, "image": "", "slug": "D006",
+    },
+    {
+        "id": "D007", "title": "سرم هیالورونیک اسید آبرسان",
+        "brand": "آردن", "category": "serum",
+        "final_price": 420000, "price": 420000, "discount_pct": 0,
+        "in_stock": True, "image": "", "slug": "D007",
+    },
+    {
+        "id": "D008", "title": "سرم ویتامین C روشن کننده",
+        "brand": "درمالیفت", "category": "serum",
+        "final_price": 510000, "price": 560000, "discount_pct": 9,
+        "in_stock": True, "image": "", "slug": "D008",
+    },
+    {
+        "id": "D009", "title": "ژل شستشوی صورت پوست چرب",
+        "brand": "هیدرودرم", "category": "cleanser",
+        "final_price": 145000, "price": 160000, "discount_pct": 9,
+        "in_stock": True, "image": "", "slug": "D009",
+    },
+    {
+        "id": "D010", "title": "فوم شستشوی صورت پوست خشک",
+        "brand": "آردن", "category": "cleanser",
+        "final_price": 175000, "price": 175000, "discount_pct": 0,
+        "in_stock": True, "image": "", "slug": "D010",
+    },
+    {
+        "id": "D011", "title": "کرم ضد لک و روشن کننده",
+        "brand": "درمالیفت", "category": "spot-care",
+        "final_price": 480000, "price": 520000, "discount_pct": 8,
+        "in_stock": True, "image": "", "slug": "D011",
+    },
+    {
+        "id": "D012", "title": "کرم دور چشم آبرسان",
+        "brand": "هیدرودرم", "category": "eye-care",
+        "final_price": 260000, "price": 290000, "discount_pct": 10,
+        "in_stock": True, "image": "", "slug": "D012",
+    },
+    {
+        "id": "D013", "title": "کرم ضد جوش پوست چرب",
+        "brand": "آردن", "category": "acne-care",
+        "final_price": 225000, "price": 250000, "discount_pct": 10,
+        "in_stock": True, "image": "", "slug": "D013",
+    },
+    {
+        "id": "D014", "title": "کرم مرطوب کننده پوست حساس",
+        "brand": "هیدرودرم", "category": "moisturizer",
+        "final_price": 205000, "price": 230000, "discount_pct": 11,
+        "in_stock": True, "image": "", "slug": "D014",
+    },
+    {
+        "id": "D015", "title": "لوسیون آبرسان صورت و بدن",
+        "brand": "آردن", "category": "moisturizer",
+        "final_price": 290000, "price": 320000, "discount_pct": 9,
+        "in_stock": False, "image": "", "slug": "D015",
+    },
+]
 
 
-class CatalogError(RuntimeError):
-    pass
+def _normalize(value: str) -> str:
+    value = str(value or "").lower()
+    value = value.replace("ي", "ی").replace("ك", "ک")
+    value = re.sub(r"[^\w\s]", " ", value)
+    return " ".join(value.split())
 
 
-def _divisor() -> int:
-    """If the API ever returns rial instead of toman, set KHANOUMI_PRICE_DIVISOR=10."""
-    try:
-        return max(1, int(os.getenv("KHANOUMI_PRICE_DIVISOR", "1")))
-    except ValueError:
-        return 1
-
-
-def _cache_get(key: str) -> list[dict[str, Any]] | None:
-    with _lock:
-        hit = _cache.get(key)
-        if hit and hit[0] > time.monotonic():
-            return hit[1]
+def _cache_get(key: str):
     return None
 
 
-def _cache_put(key: str, ttl: int, value: list[dict[str, Any]]) -> None:
-    now = time.monotonic()
-    with _lock:
-        if len(_cache) >= CACHE_MAX:
-            for stale in [k for k, (exp, _) in _cache.items() if exp <= now]:
-                _cache.pop(stale, None)
-            while len(_cache) >= CACHE_MAX:
-                _cache.pop(next(iter(_cache)))
-        _cache[key] = (now + ttl, value)
-
-
-
-def _get_json(params: dict[str, Any]) -> dict[str, Any]:
-    last: Exception | None = None
-
-    for attempt in range(2):
-        try:
-            response = _client.get(PRODUCTS, params=params)
-
-            print("KHANOUMI STATUS:", response.status_code)
-            print("KHANOUMI CONTENT TYPE:", response.headers.get("content-type"))
-            print("KHANOUMI RESPONSE PREVIEW:", response.text[:500])
-
-            if response.status_code in (429, 500, 502, 503, 504) and attempt == 0:
-                time.sleep(0.7)
-                continue
-
-            response.raise_for_status()
-            body = response.json()
-
-            if isinstance(body, dict):
-                return body
-
-            last = ValueError(f"Unexpected response type: {type(body)}")
-
-        except (httpx.HTTPError, ValueError) as exc:
-            last = exc
-            print("KHANOUMI ERROR:", repr(exc))
-
-        if attempt == 0:
-            time.sleep(0.7)
-
-    raise CatalogError(
-        "اتصال به فروشگاه خانومی برقرار نشد. چند لحظه بعد دوباره تلاش کنید."
-    ) from last
-
+def _cache_put(key: str, ttl: int, value):
+    pass
 
 
 def search(
@@ -117,140 +128,60 @@ def search(
     max_price: int | None = None,
     in_stock: bool = True,
 ) -> list[dict[str, Any]]:
-    query = " ".join(query.split())
+    query = _normalize(query)
     if len(query) < 2:
         return []
-    key = f"{query}|{limit}|{max_price}|{in_stock}"
-    cached = _cache_get(key)
-    if cached is not None:
-        return cached
 
-    # Note: no "Cheapest" sort. It floods results with the cheapest, often unrelated,
-    # items. The price ceiling is enforced by to_price and again client-side.
-    params: dict[str, Any] = {
-        "query": query,
-        "page_number": 1,
-        "page_size": min(max(limit, 1), 60),
-        "has_stock": "true" if in_stock else None,
-        "to_price": (max_price * _divisor()) if max_price else None,
-    }
-    params = {k: v for k, v in params.items() if v is not None}
-    body = _get_json(params)
-    if not body.get("isSuccess"):
-        raise CatalogError("فروشگاه خانومی پاسخ قابل استفاده نداد.")
+    words = query.split()
+    results = []
 
-    items = ((body.get("data") or {}).get("products") or {}).get("items") or []
-    products = [_item(raw) for raw in items if isinstance(raw, dict) and not raw.get("ad")]
-    products = [p for p in products if p["id"] and p["title"]]
-    _cache_put(key, CACHE_TTL, products)
-    return products
+    for product in DEMO_PRODUCTS:
+        if in_stock and not product["in_stock"]:
+            continue
+
+        if max_price and product["final_price"] > max_price:
+            continue
+
+        searchable = _normalize(
+            product["title"] + " " +
+            product["brand"] + " " +
+            product["category"]
+        )
+
+        score = sum(1 for word in words if word in searchable)
+
+        if score > 0:
+            results.append((score, product))
+
+    results.sort(key=lambda x: x[0], reverse=True)
+
+    return [dict(p) for _, p in results[:limit]]
 
 
-def collect(queries: list[str], *, limit: int = 50, max_price: int | None = None) -> list[dict[str, Any]]:
-    """Run searches in parallel and merge round-robin, so every query is represented."""
-    queries = list(dict.fromkeys(q for q in queries if q and len(q.strip()) >= 2))
-    if not queries:
-        return []
-    per_query = max(8, min(20, limit))
-    batches: list[list[dict[str, Any]]] = []
-    errors: list[CatalogError] = []
+def collect(
+    queries: list[str],
+    *,
+    limit: int = 50,
+    max_price: int | None = None,
+) -> list[dict[str, Any]]:
+    merged = []
+    seen = set()
 
-    def run(q: str) -> list[dict[str, Any]]:
-        return search(q, limit=per_query, max_price=max_price, in_stock=True)
+    for query in queries:
+        for product in search(query, limit=limit, max_price=max_price):
+            if product["id"] not in seen:
+                seen.add(product["id"])
+                merged.append({**product, "matched_query": query})
 
-    with ThreadPoolExecutor(max_workers=min(4, len(queries))) as pool:
-        futures = [(q, pool.submit(run, q)) for q in queries]
-    for q, future in futures:
-        try:
-            batches.append([{**p, "matched_query": q} for p in future.result()])
-        except CatalogError as exc:
-            errors.append(exc)
-    if not any(batches) and errors:
-        raise errors[0]
-
-    seen: set[str] = set()
-    merged: list[dict[str, Any]] = []
-    depth = max((len(b) for b in batches), default=0)
-    for i in range(depth):
-        for batch in batches:
-            if i >= len(batch):
-                continue
-            product = batch[i]
-            if product["id"] in seen:
-                continue
-            if max_price and product["final_price"] and product["final_price"] > max_price:
-                continue
-            seen.add(product["id"])
-            merged.append(product)
             if len(merged) >= limit:
                 return merged
+
     return merged
 
 
 def refresh(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Re-read live price/stock for products seen earlier in the session.
-
-    The public API has no lookup-by-id here, so each product is found again by its title.
-    If it cannot be found, the old copy is returned and flagged stale.
-    """
-
-    def one(product: dict[str, Any]) -> dict[str, Any]:
-        try:
-            for fresh in search(product["title"], limit=10, in_stock=False):
-                if fresh["id"] == product["id"]:
-                    return fresh
-        except CatalogError:
-            pass
-        return {**product, "stale": True}
-
-    if not products:
-        return []
-    with ThreadPoolExecutor(max_workers=min(4, len(products))) as pool:
-        return list(pool.map(one, products))
+    return [dict(p) for p in products]
 
 
 def showcase(limit: int = 50) -> list[dict[str, Any]]:
-    key = f"showcase|{limit}"
-    cached = _cache_get(key)
-    if cached is not None:
-        return cached
-    products = collect(list(SHOWCASE_QUERIES), limit=limit)
-    _cache_put(key, SHOWCASE_TTL, products)
-    return products
-
-
-def _item(raw: dict[str, Any]) -> dict[str, Any]:
-    brand = raw.get("brand") or {}
-    div = _divisor()
-    final = _money(raw.get("effectivePrice"), div)
-    base = _money(raw.get("basePrice"), div)
-    discount = _int(raw.get("discountPercent"))
-    slug = raw.get("slug") or ""
-    return {
-        "id": str(raw.get("id") or ""),
-        "slug": slug,
-        "title": (raw.get("nameFa") or "").strip(),
-        "brand": brand.get("nameFa") or brand.get("nameEn") or "",
-        "final_price": final,
-        "price": base if discount else final,
-        "discount_pct": discount,
-        "in_stock": bool(raw.get("isSalable")),
-        "image": raw.get("imageUrl") or raw.get("mainImageUrl") or "",
-        "url": f"{BASE}/products/{slug}" if slug else BASE,
-    }
-
-
-def _int(value: Any) -> int:
-    try:
-        return int(value or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _money(value: Any, divisor: int = 1) -> int | None:
-    if value is None or value == "":
-        return None
-    try:
-        return int(value) // divisor
-    except (TypeError, ValueError):
-        return None
+    return [dict(p) for p in DEMO_PRODUCTS[:limit]]
