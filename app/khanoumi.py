@@ -73,24 +73,41 @@ def _cache_put(key: str, ttl: int, value: list[dict[str, Any]]) -> None:
         _cache[key] = (now + ttl, value)
 
 
+
 def _get_json(params: dict[str, Any]) -> dict[str, Any]:
     last: Exception | None = None
+
     for attempt in range(2):
         try:
             response = _client.get(PRODUCTS, params=params)
+
+            print("KHANOUMI STATUS:", response.status_code)
+            print("KHANOUMI CONTENT TYPE:", response.headers.get("content-type"))
+            print("KHANOUMI RESPONSE PREVIEW:", response.text[:500])
+
             if response.status_code in (429, 500, 502, 503, 504) and attempt == 0:
                 time.sleep(0.7)
                 continue
+
             response.raise_for_status()
             body = response.json()
+
             if isinstance(body, dict):
                 return body
-            last = ValueError("unexpected body")
+
+            last = ValueError(f"Unexpected response type: {type(body)}")
+
         except (httpx.HTTPError, ValueError) as exc:
             last = exc
+            print("KHANOUMI ERROR:", repr(exc))
+
         if attempt == 0:
             time.sleep(0.7)
-    raise CatalogError("اتصال به فروشگاه خانومی برقرار نشد. چند لحظه بعد دوباره تلاش کنید.") from last
+
+    raise CatalogError(
+        "اتصال به فروشگاه خانومی برقرار نشد. چند لحظه بعد دوباره تلاش کنید."
+    ) from last
+
 
 
 def search(
